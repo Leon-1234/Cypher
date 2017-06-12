@@ -10,14 +10,13 @@
 #include <Wire.h>
 #include <PID_v1.h>
 #include <Servo.h>
-#include <SoftwareSerial.h>
 
 #define MPU6050 0x68   // Address of MPU6050 Accelerometer Gyroscope. 0x69 if AD0 is set to HIGH on the PCB
 #define HMC5883L 0x1E  // Address of HMC5883L Magnetometer
 #define BMP180 0x77    // Address of BMP180 Pressure and Temperature Sensor
 
 //#define OUTPUT_COMP_YPR // Set Complimentary Filter Output
-#define OUTPUT_PID
+#define OUTPUT_MOTOR
 
 #define I2C_TIMEOUT 1000
 #define BARO_POWER 0.1902949
@@ -97,8 +96,6 @@ PID pitchPID(&compAngleX, &pidAngleX, &setX, Kp, Ki, Kd, DIRECT);
 PID rollPID(&compAngleY, &pidAngleY, &setY, Kp, Ki, Kd, DIRECT);
 PID yawPID(&compAngleZ, &pidAngleZ, &setZ, 1, 0.02, 0.015, DIRECT);
 
-// Setup Bluetooth
-SoftwareSerial bluetooth(7,8);
 
 void motorWrite(int);
 
@@ -106,8 +103,7 @@ void setup() {
 
   delay(100); // Wait for Sensors to initialize
 
-  Serial.begin(9600);
-  bluetooth.begin(57600);
+  Serial.begin(57600);
   Wire.begin();
   TWBR = ((F_CPU / 400000L) - 16) / 2; // Set I2C frequency to 400Hz
 
@@ -129,10 +125,10 @@ void setup() {
 
   timer = micros(); // Initialize the timer
 
-  //M_FR.attach(motorFR_Pin);
-  //M_FL.attach(motorFL_Pin);
-  //M_RR.attach(motorRR_Pin);
-  //M_RL.attach(motorRL_Pin);
+  M_FR.attach(motorFR_Pin);
+  M_FL.attach(motorFL_Pin);
+  M_RR.attach(motorRR_Pin);
+  M_RL.attach(motorRL_Pin);
 
   initPID(); 
   
@@ -196,9 +192,9 @@ void cmdRead() {
 
   String cmd;
   int temp;
-  while (bluetooth.available() > 0) {
+  while (Serial.available() > 0) {
     
-     cmd = bluetooth.readStringUntil('%');
+     cmd = Serial.readStringUntil('%');
      //Serial.println(cmd); 
      if(cmd.startsWith("#")  && cmd.endsWith("!") && cmd.length() == 21 ) {  
          
@@ -224,7 +220,7 @@ void cmdRead() {
       
      }  
      
-     bluetooth.flush();
+     Serial.flush();
      
   }
   
@@ -380,15 +376,6 @@ void initPID() {
   
 }
 
-void ESCminPulse() {
-
-  M_FR.write(1100);
-  M_FL.write(1100);
-  M_RR.write(1100);
-  M_RL.write(1100);
-  
-}
-
 void motorWrite(int esc_min = 0) {
 
   motorFR = M_FR_MIN + throttle - pidAngleX + pidAngleY - pidAngleZ;
@@ -406,7 +393,7 @@ void motorWrite(int esc_min = 0) {
   else if(motorRR > 2300) motorRR = 2300;
   else if(motorRL > 2300) motorRL = 2300;
 
-  if(esc_min == 1) {
+  if(esc_min == 1) {        // ESC should recieve a 1100 pulse to start up.
     
     motorFR = 1100;
     motorFL = 1100;
