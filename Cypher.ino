@@ -27,7 +27,7 @@
 #define M_RL_MIN 1200   // Minimum Pulse for Arming the Rear-Right ESC
 
 // For Motor Pins
-int motorFR_Pin = 3; 
+int motorFR_Pin = 7; 
 int motorFL_Pin = 4; 
 int motorRR_Pin = 5; 
 int motorRL_Pin = 6;
@@ -72,7 +72,7 @@ int UP = 1, DOWN = 1, LEFT = 1, RIGHT = 1;
 
 // Control Variables
 int throttle = 0;
-uint8_t isArmed = 0;
+uint8_t isArmed = 4;
 
 // Setpoints for the PID Controller
 double setX = 0, setY = 0, setZ = 0;
@@ -159,12 +159,12 @@ void loop() {
   rollPID.Compute();
   yawPID.Compute();
 
-  if(isArmed == 2) {
-    motorWrite(1);
-    isArmed = 1;
-  }
+  if(isArmed == 0) motorWrite(1);
+  if(isArmed == 2) motorWrite(2);
   if(isArmed == 1) motorWrite(0);
 
+  motorWrite(0);
+  
   #ifdef OUTPUT_PID
   
     Serial.print(setX);
@@ -376,6 +376,7 @@ void initPID() {
   
 }
 
+
 void motorWrite(int esc_min = 0) {
 
   motorFR = M_FR_MIN + throttle - pidAngleX + pidAngleY - pidAngleZ;
@@ -400,6 +401,24 @@ void motorWrite(int esc_min = 0) {
     motorRR = 1100;
     motorRL = 1100;
     
+  }
+
+  if(esc_min == 2) {
+
+    M_FR.write(2300);
+    M_FL.write(2300);
+    M_RR.write(2300);
+    M_RL.write(2300);
+
+    delay(200);
+
+    M_FR.write(1200);
+    M_FL.write(1200);
+    M_RR.write(1200);
+    M_RL.write(1200);
+
+    isArmed = 1;
+    return;
   }
 
   M_FR.write(motorFR);
@@ -438,10 +457,12 @@ void updateJoysticks() {
   else if(X2 < 300) throttle = throttle+5;
   if(throttle < 0) throttle = 0;
   if(throttle > 800) throttle = 800; 
+  if(isArmed == 0) throttle = 0;
 
   if(B_3 == 0 && B_4 == 0) {
     
-    if(isArmed == 0) isArmed = 2;
+    if(isArmed == 4) isArmed = 2;
+    else if(isArmed == 0) isArmed = 1;
     else isArmed = 0;
     
   }
@@ -581,7 +602,7 @@ void updateYPR() {
   yaw = (atan2(-Bfy, Bfx) * RAD_TO_DEG);
 
 
-  yaw += 108;                             //Applying Offsets
+  yaw += 95;                             //Applying Offsets
   if(yaw > 180) yaw = (360 - yaw)* -1;    //Fixing Quadrants
   
   heading = atan2(-magY,magX);
